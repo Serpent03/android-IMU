@@ -95,11 +95,11 @@ public class MainActivity extends AppCompatActivity {
         if (!isRunning) { return; }
         try {
             String stA = String.format(
-                    "Xa: %f\nYa: %f\nZa: %f\nDt: %f",
+                    "Xa: %f\nYa: %f\nZa: %f\nDt: %d",
                     mIMU.accValues.get(0),
                     mIMU.accValues.get(1),
                     mIMU.accValues.get(2),
-                    mIMU.smoothMagAcc
+                    mIMU.stationaryDuration
             );
             String stV = String.format(
                     "Xv: %f\nYv: %f\nZv: %f",

@@ -26,6 +26,9 @@ public class MobileIMUData implements SensorEventListener {
     public double dT = curTime - oldTime;
     Context context;
     private Callback callback;
+    ArrayList<Double> accX = new ArrayList<Double>();
+    ArrayList<Double> accY = new ArrayList<Double>();
+    ArrayList<Double> accZ = new ArrayList<Double>();
     public ArrayList<Double> accValues = new ArrayList<Double>();
     public ArrayList<Double> velValues = new ArrayList<Double>();
     public ArrayList<Double> posValues = new ArrayList<Double>();
@@ -33,6 +36,8 @@ public class MobileIMUData implements SensorEventListener {
     public double smoothMagAcc = 0.0d;
 
     double minFilterValue = 9999;
+    int stationaryDuration = 0;
+
     ArrayList<Double> magAcc = new ArrayList<Double>();
 
     String TAG = "MobileIMU";
@@ -40,12 +45,15 @@ public class MobileIMUData implements SensorEventListener {
 
     public MobileIMUData(Activity activity) {
         this.callback = callback;
+
         accValues.add(0.0d);
         accValues.add(0.0d);
         accValues.add(0.0d);
+
         velValues.add(0.0d);
         velValues.add(0.0d);
         velValues.add(0.0d);
+
         posValues.add(0.0d);
         posValues.add(0.0d);
         posValues.add(0.0d);
@@ -53,13 +61,25 @@ public class MobileIMUData implements SensorEventListener {
         magAcc.add(0.0d);
         magAcc.add(0.0d);
         magAcc.add(0.0d);
+
+        accX.add(0.0d);
+        accX.add(0.0d);
+        accX.add(0.0d);
+
+        accY.add(0.0d);
+        accY.add(0.0d);
+        accY.add(0.0d);
+
+        accZ.add(0.0d);
+        accZ.add(0.0d);
+        accZ.add(0.0d);
 
         context = activity.getApplicationContext();
         mSensorManager = (android.hardware.SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 //        accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         Log.i(TAG, "Constructur called");
-        mSensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
     }
 
     @Override
@@ -68,29 +88,39 @@ public class MobileIMUData implements SensorEventListener {
         curTime = System.currentTimeMillis();
         timeAlive = curTime - startTime;
 
-        accValues.set(0, roundToPrecision(sensorEvent.values[0], 2));
-        accValues.set(1, roundToPrecision(sensorEvent.values[1], 2));
-        accValues.set(2, roundToPrecision(sensorEvent.values[2], 2));
+        accX.add(roundToPrecision(sensorEvent.values[0], 5));
+        accY.add(roundToPrecision(sensorEvent.values[1], 5));
+        accZ.add(roundToPrecision(sensorEvent.values[2], 5));
 
+        accValues.set(1, rollingAverage(accY, 15));
+        accValues.set(0, rollingAverage(accX, 15));
+        accValues.set(2, rollingAverage(accZ, 15));
+
+        magAcc.add(magnitudeOf(accValues));
         double term1 = magAcc.get(magAcc.size() - 1);
         double term2 = magAcc.get(magAcc.size() - 2);
         double term3 = magAcc.get(magAcc.size() - 3);
 
-        magAcc.add(magnitudeOf(accValues));
-        smoothMagAcc = rollingAverage(magAcc, 20);
-        minFilterValue = Math.min((term1 + term2 + term3) / 3, minFilterValue);
-        Log.i("MAG", "" + (minFilterValue < term1 - minFilterValue));
+        smoothMagAcc = rollingAverage(magAcc, 2);
+//        minFilterValue = Math.min((term1 + term2 + term3) / 3, minFilterValue);
+        minFilterValue = 0.01;
+//        Log.i("MAG", "" + (minFilterValue < term1 - minFilterValue));
 
         dT = (curTime - oldTime) / 1000.0;
 
-        if (magAcc.get(magAcc.size() -1) < minFilterValue) {
-            accValues.set(0, 0.0d);
-            accValues.set(1, 0.0d);
-            accValues.set(2, 0.0d);
+        if (term1 < minFilterValue) {
+            stationaryDuration++;
+            if (stationaryDuration > 10) {
+                velValues.set(0, 0.0d);
+                velValues.set(1, 0.0d);
+                velValues.set(2, 0.0d);
+                stationaryDuration = 0;
+            }
+        } else {
+            stationaryDuration = 0;
+            velValues = integrate(velValues, accValues, dT);
+            posValues = integrate(posValues, velValues, dT);
         }
-
-        velValues = integrate(velValues, accValues, dT);
-        posValues = integrate(posValues, velValues, dT);
 
         oldTime = curTime;
 //        String data = "";
