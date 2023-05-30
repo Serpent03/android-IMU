@@ -26,25 +26,33 @@ public class MobileIMUData implements SensorEventListener {
     public double dT = curTime - oldTime;
     Context context;
     private Callback callback;
-    ArrayList<Double> accX = new ArrayList<Double>();
-    ArrayList<Double> accY = new ArrayList<Double>();
-    ArrayList<Double> accZ = new ArrayList<Double>();
-    public ArrayList<Double> accValues = new ArrayList<Double>();
-    public ArrayList<Double> velValues = new ArrayList<Double>();
-    public ArrayList<Double> posValues = new ArrayList<Double>();
+    ArrayList<Double> accUnitVec = new ArrayList<>();
+    ArrayList<Double> accX = new ArrayList<>();
+    ArrayList<Double> accY = new ArrayList<>();
+    ArrayList<Double> accZ = new ArrayList<>();
+    public ArrayList<Double> accValues = new ArrayList<>();
+    public ArrayList<Double> velValues = new ArrayList<>();
+    public ArrayList<Double> posValues = new ArrayList<>();
+    public ArrayList<Double> jerkValues = new ArrayList<>();
 
     public double smoothMagAcc = 0.0d;
-
     double minFilterValue = 9999;
     int stationaryDuration = 0;
+    int calSteps = 0;
 
-    ArrayList<Double> magAcc = new ArrayList<Double>();
+    double meanX, meanY, meanZ;
+
+    ArrayList<Double> magAcc = new ArrayList<>();
 
     String TAG = "MobileIMU";
     Sensor accelerometer;
 
     public MobileIMUData(Activity activity) {
         this.callback = callback;
+
+        jerkValues.add(0.0d);
+        jerkValues.add(0.0d);
+        jerkValues.add(0.0d);
 
         accValues.add(0.0d);
         accValues.add(0.0d);
@@ -88,29 +96,49 @@ public class MobileIMUData implements SensorEventListener {
         curTime = System.currentTimeMillis();
         timeAlive = curTime - startTime;
 
-        accX.add(roundToPrecision(sensorEvent.values[0], 5));
-        accY.add(roundToPrecision(sensorEvent.values[1], 5));
-        accZ.add(roundToPrecision(sensorEvent.values[2], 5));
+//        if (timeAlive % 10 == 0) {
+//            posValues.set(0, 0.0d);
+//            posValues.set(1, 0.0d);
+//            posValues.set(2, 0.0d);
+//        }
 
-        accValues.set(1, rollingAverage(accY, 15));
+        while (calSteps < 20) {
+            Log.i("CAL", "");
+            accX.add((double) sensorEvent.values[0]);
+            accY.add((double) sensorEvent.values[1]);
+            accZ.add((double) sensorEvent.values[2]);
+
+            meanX = rollingAverage(accX, 20);
+            meanY = rollingAverage(accY, 20);
+            meanZ = rollingAverage(accZ, 20);
+            calSteps++;
+        }
+
+        accX.add(roundToPrecision(sensorEvent.values[0], 5) - meanX);
+        accY.add(roundToPrecision(sensorEvent.values[1], 5) - meanY);
+        accZ.add(roundToPrecision(sensorEvent.values[2], 5) - meanZ);
+
         accValues.set(0, rollingAverage(accX, 15));
+        accValues.set(1, rollingAverage(accY, 15));
         accValues.set(2, rollingAverage(accZ, 15));
+
+//        accUnitVec = getUnitVector(accValues);
 
         magAcc.add(magnitudeOf(accValues));
         double term1 = magAcc.get(magAcc.size() - 1);
         double term2 = magAcc.get(magAcc.size() - 2);
         double term3 = magAcc.get(magAcc.size() - 3);
 
-        smoothMagAcc = rollingAverage(magAcc, 2);
+        smoothMagAcc = rollingAverage(magAcc, 10);
 //        minFilterValue = Math.min((term1 + term2 + term3) / 3, minFilterValue);
-        minFilterValue = 0.01;
+        minFilterValue = 0.02;
 //        Log.i("MAG", "" + (minFilterValue < term1 - minFilterValue));
 
         dT = (curTime - oldTime) / 1000.0;
 
         if (term1 < minFilterValue) {
             stationaryDuration++;
-            if (stationaryDuration > 10) {
+            if (stationaryDuration >= 4) {
                 velValues.set(0, 0.0d);
                 velValues.set(1, 0.0d);
                 velValues.set(2, 0.0d);
@@ -118,9 +146,10 @@ public class MobileIMUData implements SensorEventListener {
             }
         } else {
             stationaryDuration = 0;
-            velValues = integrate(velValues, accValues, dT);
-            posValues = integrate(posValues, velValues, dT);
         }
+
+        velValues = integrate(velValues, accValues, dT);
+        posValues = integrate(posValues, velValues, dT);
 
         oldTime = curTime;
 //        String data = "";
@@ -143,11 +172,28 @@ public class MobileIMUData implements SensorEventListener {
         return Math.sqrt(Math.pow(pVec.get(0), 2) + Math.pow(pVec.get(1), 2) + Math.pow(pVec.get(2), 2));
     }
 
+    public ArrayList<Double> getUnitVector(ArrayList<Double> pVec) {
+        double magVec = magnitudeOf(pVec);
+        pVec.set(0, pVec.get(0) / magVec);
+        pVec.set(1, pVec.get(1) / magVec);
+        pVec.set(2, pVec.get(2) / magVec);
+        return pVec;
+    }
+
     public ArrayList<Double> integrate(ArrayList<Double> pVal, ArrayList<Double> iVal, double dT) {
-        pVal.set(0, pVal.get(0) + (iVal.get(0) * dT));
-        pVal.set(1, pVal.get(1) + (iVal.get(1) * dT));
-        pVal.set(2, pVal.get(2) + (iVal.get(2) * dT));
+        double dampFac = 1;
+        pVal.set(0, (pVal.get(0) + (iVal.get(0) * dT)) * dampFac);
+        pVal.set(1, (pVal.get(1) + (iVal.get(1) * dT)) * dampFac);
+        pVal.set(2, (pVal.get(2) + (iVal.get(2) * dT)) * dampFac);
         return pVal;
+    }
+
+    public ArrayList<Double> differentiate(ArrayList<Double> oldV, ArrayList<Double> newV, double dT) {
+        ArrayList<Double> t = new ArrayList<>();
+        t.add((newV.get(0) - oldV.get(0)) / 2);
+        t.add((newV.get(1) - oldV.get(1)) / 2);
+        t.add((newV.get(2) - oldV.get(2)) / 2);
+        return t;
     }
 
     public double roundToPrecision(double num, int precision) {

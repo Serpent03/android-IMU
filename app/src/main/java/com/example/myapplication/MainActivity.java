@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
     TextView tvP;
     Timer textUpdateTimer = new Timer();
     int delay = 0;
-    int period = 50;
+    int period = 100;
     boolean isRunning = false;
 
     GraphView gv_AMAG;
@@ -95,11 +95,11 @@ public class MainActivity extends AppCompatActivity {
         if (!isRunning) { return; }
         try {
             String stA = String.format(
-                    "Xa: %f\nYa: %f\nZa: %f\nDt: %d",
+                    "Xa: %f\nYa: %f\nZa: %f\nDt: %f",
                     mIMU.accValues.get(0),
                     mIMU.accValues.get(1),
                     mIMU.accValues.get(2),
-                    mIMU.stationaryDuration
+                    mIMU.dT
             );
             String stV = String.format(
                     "Xv: %f\nYv: %f\nZv: %f",
@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
                     mIMU.posValues.get(2) * 100
             );
 
-            Log.i("SENS_VAL", stA);
+            Log.i("SENS_VAL", "\n" + stA);
             tvA.setText(stA);
             tvV.setText(stV);
             tvP.setText(stP);
