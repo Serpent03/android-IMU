@@ -36,6 +36,7 @@ public class MobileIMUData implements SensorEventListener {
     public ArrayList<Double> jerkValues = new ArrayList<>();
 
     public double smoothMagAcc = 0.0d;
+    public double term1;
     double minFilterValue = 9999;
     int stationaryDuration = 0;
     int calSteps = 0;
@@ -114,9 +115,9 @@ public class MobileIMUData implements SensorEventListener {
             calSteps++;
         }
 
-        accX.add(roundToPrecision(sensorEvent.values[0], 5) - meanX);
-        accY.add(roundToPrecision(sensorEvent.values[1], 5) - meanY);
-        accZ.add(roundToPrecision(sensorEvent.values[2], 5) - meanZ);
+        accX.add(roundToPrecision(sensorEvent.values[0], 6));
+        accY.add(roundToPrecision(sensorEvent.values[1], 6));
+        accZ.add(roundToPrecision(sensorEvent.values[2], 6));
 
         accValues.set(0, rollingAverage(accX, 15));
         accValues.set(1, rollingAverage(accY, 15));
@@ -125,20 +126,23 @@ public class MobileIMUData implements SensorEventListener {
 //        accUnitVec = getUnitVector(accValues);
 
         magAcc.add(magnitudeOf(accValues));
-        double term1 = magAcc.get(magAcc.size() - 1);
+        smoothMagAcc = rollingAverage(magAcc, 10);
+        term1 = magAcc.get(magAcc.size() - 1);
         double term2 = magAcc.get(magAcc.size() - 2);
         double term3 = magAcc.get(magAcc.size() - 3);
 
-        smoothMagAcc = rollingAverage(magAcc, 10);
 //        minFilterValue = Math.min((term1 + term2 + term3) / 3, minFilterValue);
-        minFilterValue = 0.02;
+        minFilterValue = 0.03;
 //        Log.i("MAG", "" + (minFilterValue < term1 - minFilterValue));
 
         dT = (curTime - oldTime) / 1000.0;
 
         if (term1 < minFilterValue) {
             stationaryDuration++;
-            if (stationaryDuration >= 4) {
+            accValues.set(0, 0.0d);
+            accValues.set(1, 0.0d);
+            accValues.set(2, 0.0d);
+            if (stationaryDuration >= 10) { // (dT*10) ms
                 velValues.set(0, 0.0d);
                 velValues.set(1, 0.0d);
                 velValues.set(2, 0.0d);

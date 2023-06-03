@@ -99,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
                     mIMU.accValues.get(0),
                     mIMU.accValues.get(1),
                     mIMU.accValues.get(2),
-                    mIMU.dT
+                    mIMU.term1
             );
             String stV = String.format(
                     "Xv: %f\nYv: %f\nZv: %f",
