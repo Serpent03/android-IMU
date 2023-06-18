@@ -96,16 +96,16 @@ public class MainActivity extends AppCompatActivity {
         try {
             String stA = String.format(
                     "Xa: %f\nYa: %f\nZa: %f\nDt: %f",
-                    mIMU.accValues.get(0),
-                    mIMU.accValues.get(1),
-                    mIMU.accValues.get(2),
-                    mIMU.term1
+                    mIMU.accValues.get(0) * 100,
+                    mIMU.accValues.get(1) * 100,
+                    mIMU.accValues.get(2) * 100,
+                    mIMU.dT
             );
             String stV = String.format(
                     "Xv: %f\nYv: %f\nZv: %f",
-                    mIMU.velValues.get(0),
-                    mIMU.velValues.get(1),
-                    mIMU.velValues.get(2)
+                    mIMU.velValues.get(0) * 100,
+                    mIMU.velValues.get(1) * 100,
+                    mIMU.velValues.get(2) * 100
             );
             String stP = String.format(
                     "Xp: %f\nYp: %f\nZp: %f",
